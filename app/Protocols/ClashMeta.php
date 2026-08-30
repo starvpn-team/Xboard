@@ -345,7 +345,7 @@ class ClashMeta extends AbstractProtocol
             $array['tls'] = (bool) data_get($protocol_settings, 'tls');
             $array['skip-cert-verify'] = (bool) data_get($protocol_settings, 'tls_settings.allow_insecure', false);
             $array['servername'] = data_get($protocol_settings, 'tls_settings.server_name');
-            self::appendEch($array, data_get($protocol_settings, 'tls_settings.ech'));
+            self::appendEch($array, data_get($protocol_settings, 'tls_settings.ech'), $array['servername'] ?? $array['server']);
         }
 
         self::appendUtls($array, $protocol_settings);
@@ -428,7 +428,7 @@ class ClashMeta extends AbstractProtocol
                 if ($serverName = data_get($protocol_settings, 'tls_settings.server_name')) {
                     $array['servername'] = $serverName;
                 }
-                self::appendEch($array, data_get($protocol_settings, 'tls_settings.ech'));
+                self::appendEch($array, data_get($protocol_settings, 'tls_settings.ech'), $array['servername'] ?? $array['server']);
                 self::appendUtls($array, $protocol_settings);
                 break;
             case 2:
@@ -539,7 +539,7 @@ class ClashMeta extends AbstractProtocol
                 if ($serverName = data_get($protocol_settings, 'tls_settings.server_name')) {
                     $array['sni'] = $serverName;
                 }
-                self::appendEch($array, data_get($protocol_settings, 'tls_settings.ech'));
+                self::appendEch($array, data_get($protocol_settings, 'tls_settings.ech'), $array['sni'] ?? $array['server']);
                 break;
         }
 
@@ -598,6 +598,7 @@ class ClashMeta extends AbstractProtocol
             'down' => data_get($protocol_settings, 'bandwidth.down'),
             'skip-cert-verify' => (bool) data_get($protocol_settings, 'tls.allow_insecure', false),
         ];
+        self::appendEch($array, data_get($protocol_settings, 'tls.ech'), $array['sni'] ?? $array['server']);
         if (isset($server['ports'])) {
             $array['ports'] = $server['ports'];
         }
@@ -650,6 +651,7 @@ class ClashMeta extends AbstractProtocol
         if ($serverName = data_get($protocol_settings, 'tls.server_name')) {
             $array['sni'] = $serverName;
         }
+        self::appendEch($array, data_get($protocol_settings, 'tls.ech'), $array['sni'] ?? $array['server']);
 
         if ($alpn = data_get($protocol_settings, 'alpn')) {
             $array['alpn'] = $alpn;
@@ -680,7 +682,7 @@ class ClashMeta extends AbstractProtocol
         if ($allowInsecure = data_get($protocol_settings, 'tls.allow_insecure')) {
             $array['skip-cert-verify'] = (bool) $allowInsecure;
         }
-        self::appendEch($array, data_get($protocol_settings, 'tls.ech'));
+        self::appendEch($array, data_get($protocol_settings, 'tls.ech'), $array['sni'] ?? $array['server']);
 
         return $array;
     }
@@ -743,7 +745,11 @@ class ClashMeta extends AbstractProtocol
         // TLS 配置
         if (data_get($protocol_settings, 'tls')) {
             $array['tls'] = true;
+            if ($serverName = data_get($protocol_settings, 'tls_settings.server_name')) {
+                $array['sni'] = $serverName;
+            }
             $array['skip-cert-verify'] = (bool) data_get($protocol_settings, 'tls_settings.allow_insecure', false);
+            self::appendEch($array, data_get($protocol_settings, 'tls_settings.ech'), $array['sni'] ?? $array['server']);
         }
 
         return $array;
@@ -803,13 +809,13 @@ class ClashMeta extends AbstractProtocol
         }
     }
 
-    protected static function appendEch(&$array, $ech): void
+    protected static function appendEch(&$array, $ech, $servername): void
     {
         if ($normalized = Helper::normalizeEchSettings($ech)) {
             $array['ech-opts'] = array_filter([
                 'enable' => true,
                 'config' => Helper::toMihomoEchConfig(data_get($normalized, 'config')),
-                'query-server-name' => data_get($normalized, 'query_server_name'),
+                'query-server-name' => data_get($normalized, 'query_server_name', $servername),
             ], fn($value) => $value !== null);
         }
     }

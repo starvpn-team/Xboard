@@ -109,6 +109,7 @@ class Shadowrocket extends AbstractProtocol
                     $config['allowInsecure'] = (int) data_get($protocol_settings, 'tls_settings.allow_insecure');
                 if (!!data_get($protocol_settings, 'tls_settings.server_name'))
                     $config['peer'] = data_get($protocol_settings, 'tls_settings.server_name');
+                self::appendEch($config, data_get($protocol_settings, 'tls_settings.ech'), $config['peer'] ?? $server['host']);
             }
         }
 
@@ -205,6 +206,7 @@ class Shadowrocket extends AbstractProtocol
                 if ($fp = Helper::getTlsFingerprint(data_get($protocol_settings, 'utls'))) {
                     $config['fp'] = $fp;
                 }
+                self::appendEch($config, data_get($protocol_settings, 'tls_settings.ech'), $config['peer'] ?? $server['host']);
                 break;
             case 2:
                 $config['tls'] = 1;
@@ -305,6 +307,7 @@ class Shadowrocket extends AbstractProtocol
                 if ($serverName = data_get($protocol_settings, 'tls_settings.server_name')) {
                     $params['peer'] = $serverName;
                 }
+                self::appendEch($params, data_get($protocol_settings, 'tls_settings.ech'), $params['peer'] ?? $server['host']);
                 break;
         }
 
@@ -367,6 +370,7 @@ class Shadowrocket extends AbstractProtocol
                 if ($serverName = data_get($protocol_settings, 'tls.server_name')) {
                     $params['peer'] = $serverName;
                 }
+                self::appendEch($params, data_get($protocol_settings, 'tls.ech'), $params['peer'] ?? $server['host']);
                 if (data_get($protocol_settings, 'obfs.open')) {
                     $params["obfs"] = "xplus";
                     $params["obfsParam"] = data_get($protocol_settings, 'obfs.password');
@@ -394,6 +398,7 @@ class Shadowrocket extends AbstractProtocol
                 if ($serverName = data_get($protocol_settings, 'tls.server_name')) {
                     $params['peer'] = $serverName;
                 }
+                self::appendEch($params, data_get($protocol_settings, 'tls.ech'), $params['peer'] ?? $server['host']);
                 if (data_get($protocol_settings, 'obfs.open')) {
                     $params['obfs'] = data_get($protocol_settings, 'obfs.type');
                     $params['obfs-password'] = data_get($protocol_settings, 'obfs.password');
@@ -414,6 +419,7 @@ class Shadowrocket extends AbstractProtocol
         }
         return $uri;
     }
+
     public static function buildTuic($password, $server)
     {
         $protocol_settings = $server['protocol_settings'];
@@ -424,6 +430,7 @@ class Shadowrocket extends AbstractProtocol
             'insecure' => data_get($protocol_settings, 'tls.allow_insecure'),
             'congestion_control' => data_get($protocol_settings, 'congestion_control', 'cubic')
         ];
+        self::appendEch($params, data_get($protocol_settings, 'tls.ech'), $params['sni'] ?? $server['host']);
         if (data_get($protocol_settings, 'version') === 4) {
             $params['token'] = $password;
         } else {
@@ -445,6 +452,7 @@ class Shadowrocket extends AbstractProtocol
             'sni' => data_get($protocol_settings, 'tls.server_name'),
             'insecure' => data_get($protocol_settings, 'tls.allow_insecure')
         ];
+        self::appendEch($params, data_get($protocol_settings, 'tls.ech'), $params['sni'] ?? $server['host']);
         $query = http_build_query($params);
         $addr = Helper::wrapIPv6($server['host']);
         $uri = "anytls://{$password}@{$addr}:{$server['port']}?{$query}#{$name}";
@@ -460,5 +468,16 @@ class Shadowrocket extends AbstractProtocol
         $uri = 'socks://' . base64_encode("{$password}:{$password}@{$addr}:{$server['port']}") . "?method=auto#{$name}";
         $uri .= "\r\n";
         return $uri;
+    }
+
+    protected static function appendEch(&$array, $ech, $servername): void
+    {
+        if ($normalized = Helper::normalizeEchSettings($ech)) {
+            if ($echConfig = Helper::toMihomoEchConfig(data_get($normalized, 'config'))) {
+                $array['ech'] = $echConfig;
+            } else if ($echQueryConfig = data_get($normalized, 'query_server_name', $servername)) {
+                $array['ech'] = $echQueryConfig;
+            }
+        }
     }
 }

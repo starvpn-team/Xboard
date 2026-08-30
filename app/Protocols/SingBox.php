@@ -564,11 +564,12 @@ class SingBox extends AbstractProtocol
             ];
 
             $this->appendUtls($array['tls'], $protocol_settings);
-            $this->appendEch($array['tls'], data_get($protocol_settings, 'tls_settings.ech'));
 
             if ($serverName = data_get($protocol_settings, 'tls_settings.server_name')) {
                 $array['tls']['server_name'] = $serverName;
             }
+
+            $this->appendEch($array['tls'], data_get($protocol_settings, 'tls_settings.ech'), $array['tls']['server_name'] ?? $array['server']);
         }
 
         $this->appendMultiplex($array, $protocol_settings);
@@ -607,10 +608,10 @@ class SingBox extends AbstractProtocol
 
             switch ($tlsMode) {
                 case 1:
-                    $this->appendEch($tlsConfig, data_get($protocol_settings, 'tls_settings.ech'));
                     if ($serverName = data_get($protocol_settings, 'tls_settings.server_name')) {
                         $tlsConfig['server_name'] = $serverName;
                     }
+                    $this->appendEch($tlsConfig, data_get($protocol_settings, 'tls_settings.ech'), $tlsConfig['server_name'] ?? $array['server']);
                     break;
                 case 2:
                     $tlsConfig['server_name'] = data_get($protocol_settings, 'reality_settings.server_name');
@@ -660,10 +661,10 @@ class SingBox extends AbstractProtocol
                 break;
             default: // Standard TLS
                 $tlsConfig['insecure'] = (bool) data_get($protocol_settings, 'tls_settings.allow_insecure', false);
-                $this->appendEch($tlsConfig, data_get($protocol_settings, 'tls_settings.ech'));
                 if ($serverName = data_get($protocol_settings, 'tls_settings.server_name')) {
                     $tlsConfig['server_name'] = $serverName;
                 }
+                $this->appendEch($tlsConfig, data_get($protocol_settings, 'tls_settings.ech'), $tlsConfig['server_name'] ?? $array['server']);
                 break;
         }
 
@@ -703,7 +704,7 @@ class SingBox extends AbstractProtocol
         if ($serverName = data_get($protocol_settings, 'tls.server_name')) {
             $baseConfig['tls']['server_name'] = $serverName;
         }
-        $this->appendEch($baseConfig['tls'], data_get($protocol_settings, 'tls.ech'));
+        $this->appendEch($baseConfig['tls'], data_get($protocol_settings, 'tls.ech'), $baseConfig['tls']['server_name'] ?? $baseConfig['server']);
         $speedConfig = [
             'up_mbps' => data_get($protocol_settings, 'bandwidth.up'),
             'down_mbps' => data_get($protocol_settings, 'bandwidth.down'),
@@ -753,7 +754,7 @@ class SingBox extends AbstractProtocol
         if ($serverName = data_get($protocol_settings, 'tls.server_name')) {
             $array['tls']['server_name'] = $serverName;
         }
-        $this->appendEch($array['tls'], data_get($protocol_settings, 'tls.ech'));
+        $this->appendEch($array['tls'], data_get($protocol_settings, 'tls.ech'), $array['tls']['server_name'] ?? $array['server']);
 
         if (data_get($protocol_settings, 'version') === 4) {
             $array['token'] = $password;
@@ -784,7 +785,7 @@ class SingBox extends AbstractProtocol
         if ($serverName = data_get($protocol_settings, 'tls.server_name')) {
             $array['tls']['server_name'] = $serverName;
         }
-        $this->appendEch($array['tls'], data_get($protocol_settings, 'tls.ech'));
+        $this->appendEch($array['tls'], data_get($protocol_settings, 'tls.ech'), $array['tls']['server_name'] ?? $array['server']);
 
         return $array;
     }
@@ -838,7 +839,7 @@ class SingBox extends AbstractProtocol
             if ($serverName = data_get($protocol_settings, 'tls_settings.server_name')) {
                 $array['tls']['server_name'] = $serverName;
             }
-            $this->appendEch($array['tls'], data_get($protocol_settings, 'tls_settings.ech'));
+            $this->appendEch($array['tls'], data_get($protocol_settings, 'tls_settings.ech'), $array['tls']['server_name'] ?? $array['server']);
         }
 
         return $array;
@@ -921,14 +922,14 @@ class SingBox extends AbstractProtocol
         }
     }
 
-    protected function appendEch(&$tlsConfig, $ech): void
+    protected function appendEch(&$tlsConfig, $ech, $servername): void
     {
         if ($normalized = Helper::normalizeEchSettings($ech)) {
             // Client outbound only needs the public ECH config, not the server's private key
             $tlsConfig['ech'] = array_filter([
                 'enabled' => true,
                 'config' => data_get($normalized, 'config') ? [data_get($normalized, 'config')] : null,
-                'query_server_name' => data_get($normalized, 'query_server_name'),
+                'query_server_name' => data_get($normalized, 'query_server_name', $servername),
             ], fn($value) => $value !== null);
         }
     }
