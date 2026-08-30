@@ -140,7 +140,7 @@ class Shadowrocket extends AbstractProtocol
                 if ($host = data_get($protocol_settings, 'network_settings.host', $server['host'])) {
                     $config['obfsParam'] = $host;
                 }
-            break;
+                break;
             case 'h2':
                 $config['obfs'] = "h2";
                 if ($path = data_get($protocol_settings, 'network_settings.path')) {
@@ -173,7 +173,11 @@ class Shadowrocket extends AbstractProtocol
     public static function buildVless($uuid, $server)
     {
         $protocol_settings = $server['protocol_settings'];
-        $userinfo = base64_encode('auto:' . $uuid . '@' . Helper::wrapIPv6($server['host']) . ':' . $server['port']);
+        $encryption = match (data_get($protocol_settings, 'encryption.enabled')) {
+            true => data_get($protocol_settings, 'encryption.encryption'),
+            default => 'auto'
+        };
+        $userinfo = base64_encode($encryption . ':' . $uuid . '@' . Helper::wrapIPv6($server['host']) . ':' . $server['port']);
         $config = [
             'tfo' => 1,
             'remark' => $server['name'],
